@@ -19,7 +19,6 @@ async def search(req: QueryRequest) -> Dict[str, Any]:
     try:
         client = OpenAI()
         resp = client.responses.create(model="gpt-5", tools=[{"type": "web_search"}], input=req.query)
-        print("processing response from OpenAI ...")
 
         out = {}
         
