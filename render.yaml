@@ -1,8 +1,7 @@
 services:
   - type: web
     name: chatbot-websearch
-    env: python
-    pythonVersion: 3.10
+    runtime: python-3.10
     branch: main
     plan: free
     region: singapore
