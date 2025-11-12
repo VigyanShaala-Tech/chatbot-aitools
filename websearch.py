@@ -45,4 +45,4 @@ async def search(req: QueryRequest) -> Dict[str, Any]:
 
 
 if __name__ == "__main__":
-    uvicorn.run("websearch:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("websearch:app", host="0.0.0.0", port=8000, reload=False)
