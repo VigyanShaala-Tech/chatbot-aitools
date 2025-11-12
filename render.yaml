@@ -2,7 +2,6 @@ services:
   - type: web
     name: chatbot-websearch
     env: python
-    runtime: python3.10
     branch: main
     plan: free
     region: singapore
@@ -12,5 +11,7 @@ services:
       - key: OPENAI_API_KEY
         fromSecret: OPENAI_API_KEY
         sync: false
+      - key: PYTHON_VERSION
+        value: "3.10"
     # auto-deploy from GitHub on push to main branch
     autoDeploy: true
