@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from typing import Dict
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -114,7 +115,7 @@ async def process_search_and_callback(request_data: dict):
             "duration_ms": int((datetime.now() - start_time).total_seconds() * 1000)
         }
 
-        # GraphQL mutation
+        # GraphQL mutation - result must be a JSON string
         graphql_query = {
             "query": """mutation resumeContactFlow($flowId: ID!, $contactId: ID!, $result: Json!) {
   resumeContactFlow(flowId: $flowId, contactId: $contactId, result: $result) {
@@ -128,7 +129,7 @@ async def process_search_and_callback(request_data: dict):
             "variables": {
                 "flowId": flow_id,
                 "contactId": contact_id,
-                "result": result_data
+                "result": json.dumps(result_data)  # Stringify the JSON
             }
         }
 
