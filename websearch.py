@@ -81,7 +81,8 @@ async def search(req: QueryRequest, background_tasks: BackgroundTasks) -> Dict[s
     if not req.query or not req.query.strip():
         raise HTTPException(status_code=400, detail="query cannot be empty")
 
-    logger.info(f"Received search request for query: {req.query}")
+    # Log the complete received request
+    logger.info(f"Received search request: {req.model_dump()}")
 
     # Convert request to dict to pass all parameters to background task
     request_data = req.model_dump()
