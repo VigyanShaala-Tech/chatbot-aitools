@@ -3,7 +3,7 @@ import logging
 from typing import Dict
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, BackgroundTasks
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel
 from openai import OpenAI
 import uvicorn
 import httpx
@@ -18,21 +18,56 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class QueryRequest(BaseModel):
     query: str
-    callback_url: HttpUrl
+    flow_id: str
+    contact_id: str
+
+
+async def get_auth_token() -> str:
+    """Get authentication token from Glific API"""
+    login_url = os.getenv("GLIFIC_LOGIN_URL")
+    phone = os.getenv("GLIFIC_PHONE")
+    password = os.getenv("GLIFIC_PASSWORD")
+
+    if not all([login_url, phone, password]):
+        raise ValueError("Missing Glific credentials in environment variables")
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            response = await http_client.post(
+                login_url,
+                json={
+                    "user": {
+                        "phone": phone,
+                        "password": password
+                    }
+                },
+                headers={
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            access_token = data["data"]["access_token"]
+            logger.info("Successfully obtained auth token")
+            return access_token
+    except Exception as e:
+        logger.error(f"Failed to get auth token: {e}")
+        raise
 
 
 async def process_search_and_callback(request_data: dict):
-    """Background task to process search and send results to callback URL"""
+    """Background task to process search and send results to Glific"""
     start_time = datetime.now()
-    result = {}
 
     query = request_data["query"]
-    callback_url = request_data["callback_url"]
+    flow_id = request_data["flow_id"]
+    contact_id = request_data["contact_id"]
 
     logger.info(f"Starting search processing for query: {query}")
 
+    # Step 1: Call OpenAI API
     try:
-        # Call OpenAI API using global client
         resp = client.responses.create(model="gpt-5", tools=[{"type": "web_search"}], input=query)
 
         out = {}
@@ -51,29 +86,67 @@ async def process_search_and_callback(request_data: dict):
                     elif isinstance(c, str):
                         pieces.append(c)
 
-        out["text"] = "\n\n".join(pieces) if pieces else None
-        result = {"ok": True, "openai_response": out["text"]}
+        openai_response = "\n\n".join(pieces) if pieces else None
         logger.info("OpenAI API call successful")
 
     except Exception as e:
         logger.error(f"OpenAI API error: {e}")
-        result = {"ok": False, "error": str(e)}
+        openai_response = f"Error: {str(e)}"
 
-    # Construct callback payload with all original request data
-    payload = {
-        **request_data,  # Include all original request parameters
-        "result": result,
-        "processed_at": datetime.now().isoformat(),
-        "duration_ms": int((datetime.now() - start_time).total_seconds() * 1000)
-    }
-
-    # Send callback
+    # Step 2: Get auth token from Glific
     try:
-        async with httpx.AsyncClient(timeout=30.0) as http_client:
-            response = await http_client.post(callback_url, json=payload)
-            logger.info(f"Callback sent successfully to {callback_url}: {response.status_code}")
+        auth_token = await get_auth_token()
     except Exception as e:
-        logger.error(f"Callback failed for {callback_url}: {e}")
+        logger.error(f"Failed to authenticate with Glific: {e}")
+        return
+
+    # Step 3: Send result to Glific via GraphQL mutation
+    try:
+        glific_api_url = os.getenv("GLIFIC_API_URL")
+        if not glific_api_url:
+            raise ValueError("GLIFIC_API_URL not set in environment")
+
+        # Prepare result payload
+        result_data = {
+            **request_data,
+            "openai_response": openai_response,
+            "processed_at": datetime.now().isoformat(),
+            "duration_ms": int((datetime.now() - start_time).total_seconds() * 1000)
+        }
+
+        # GraphQL mutation
+        graphql_query = {
+            "query": """mutation resumeContactFlow($flowId: ID!, $contactId: ID!, $result: Json!) {
+  resumeContactFlow(flowId: $flowId, contactId: $contactId, result: $result) {
+    success
+    errors {
+        key
+        message
+    }
+  }
+}""",
+            "variables": {
+                "flowId": flow_id,
+                "contactId": contact_id,
+                "result": result_data
+            }
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            response = await http_client.post(
+                glific_api_url,
+                json=graphql_query,
+                headers={
+                    "authorization": auth_token,
+                    "Content-Type": "application/json"
+                }
+            )
+            response.raise_for_status()
+            result = response.json()
+            logger.info(f"Successfully sent result to Glific: {result}")
+
+    except Exception as e:
+        logger.error(f"Failed to send result to Glific: {e}")
 
 
 @app.post("/search", status_code=202)
@@ -86,10 +159,8 @@ async def search(req: QueryRequest, background_tasks: BackgroundTasks) -> Dict[s
 
     # Convert request to dict to pass all parameters to background task
     request_data = req.model_dump()
-    # Convert HttpUrl to string for JSON serialization
-    request_data["callback_url"] = str(request_data["callback_url"])
 
-    # Add background task to process search and send callback
+    # Add background task to process search and send to Glific
     background_tasks.add_task(
         process_search_and_callback,
         request_data
@@ -97,7 +168,7 @@ async def search(req: QueryRequest, background_tasks: BackgroundTasks) -> Dict[s
 
     return {
         "status": "accepted",
-        "message": "Search request is being processed. Results will be sent to the callback URL."
+        "message": "Search request is being processed. Results will be sent to Glific."
     }
 
 
