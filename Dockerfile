@@ -1,19 +1,17 @@
 # Dockerfile for chatbot-websearch
-# Uses a small official Python image and runs uvicorn to serve the FastAPI app
-FROM python:3.10-slim
+# Uses Python 3.13 and uv for fast, reliable dependency installation
+FROM python:3.13-slim
 
-# Install system deps for building wheels (if any). Keep image small.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    gcc \
- && rm -rf /var/lib/apt/lists/*
+# Install uv - the fast Python package installer
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
 # Copy only requirements first to leverage Docker layer caching
 COPY requirements.txt ./
-# Install Python dependencies (gunicorn is provided via requirements.txt)
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Python dependencies using uv (much faster than pip)
+RUN uv pip install --system --no-cache -r requirements.txt
 
 # Copy application
 COPY . /app
