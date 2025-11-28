@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 # Initialize OpenAI client once at startup for reuse across all requests
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Set timeout to 2 minutes for web search operations
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=120.0)
 
 class QueryRequest(BaseModel):
     query: str
