@@ -43,5 +43,11 @@ async def search(req: QueryRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/health")
+async def health() -> Dict[str, str]:
+    """Simple health check endpoint used by container healthchecks."""
+    return {"status": "ok"}
+
+
 if __name__ == "__main__":
     uvicorn.run("websearch:app", host="0.0.0.0", port=8000, reload=False)
