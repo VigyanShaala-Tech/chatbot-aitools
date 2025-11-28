@@ -7,4 +7,8 @@ services:
       - "3001:8000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GLIFIC_LOGIN_URL=${GLIFIC_LOGIN_URL}
+      - GLIFIC_API_URL=${GLIFIC_API_URL}
+      - GLIFIC_PHONE=${GLIFIC_PHONE}
+      - GLIFIC_PASSWORD=${GLIFIC_PASSWORD}
     restart: unless-stopped
