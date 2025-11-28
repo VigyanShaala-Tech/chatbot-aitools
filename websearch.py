@@ -106,10 +106,10 @@ async def process_search_and_callback(request_data: dict):
         if not glific_api_url:
             raise ValueError("GLIFIC_API_URL not set in environment")
 
-        # Prepare result payload
+        # Prepare result payload - only include the data Glific expects
         result_data = {
-            **request_data,
             "openai_response": openai_response,
+            "query": query,
             "processed_at": datetime.now().isoformat(),
             "duration_ms": int((datetime.now() - start_time).total_seconds() * 1000)
         }
