@@ -27,7 +27,6 @@ Create a `.env` file in the project root (see `.env.example` for reference):
 OPENAI_API_KEY=your_openai_api_key_here
 
 # Glific Configuration
-GLIFIC_LOGIN_URL=https://api.staging.glific.com/api/v1/session
 GLIFIC_API_URL=https://api.staging.glific.com/api
 GLIFIC_PHONE=917834811114
 GLIFIC_PASSWORD=secret1234
@@ -47,7 +46,6 @@ pip install -r requirements.txt
 
 ```bash
 export OPENAI_API_KEY="sk-..."
-export GLIFIC_LOGIN_URL="https://api.staging.glific.com/api/v1/session"
 export GLIFIC_API_URL="https://api.staging.glific.com/api"
 export GLIFIC_PHONE="917834811114"
 export GLIFIC_PASSWORD="secret1234"
@@ -81,7 +79,6 @@ uvicorn websearch:app --host 0.0.0.0 --port 8000 --reload
 
 ```bash
 export OPENAI_API_KEY="sk-..."
-export GLIFIC_LOGIN_URL="https://api.staging.glific.com/api/v1/session"
 export GLIFIC_API_URL="https://api.staging.glific.com/api"
 export GLIFIC_PHONE="917834811114"
 export GLIFIC_PASSWORD="secret1234"
@@ -114,7 +111,6 @@ docker build -t chatbot-websearch .
 ```bash
 docker run -d \
   -e OPENAI_API_KEY="$OPENAI_API_KEY" \
-  -e GLIFIC_LOGIN_URL="$GLIFIC_LOGIN_URL" \
   -e GLIFIC_API_URL="$GLIFIC_API_URL" \
   -e GLIFIC_PHONE="$GLIFIC_PHONE" \
   -e GLIFIC_PASSWORD="$GLIFIC_PASSWORD" \
@@ -253,7 +249,6 @@ Ensure all environment variables are exported before running:
 
 ```bash
 docker-compose down
-export GLIFIC_LOGIN_URL="..."
 export GLIFIC_API_URL="..."
 export GLIFIC_PHONE="..."
 export GLIFIC_PASSWORD="..."
@@ -274,7 +269,6 @@ This service is configured for deployment on Render.com via `render.yaml`. The c
 
 Environment variables must be set in the Render dashboard:
 - `OPENAI_API_KEY`
-- `GLIFIC_LOGIN_URL`
 - `GLIFIC_API_URL`
 - `GLIFIC_PHONE`
 - `GLIFIC_PASSWORD`

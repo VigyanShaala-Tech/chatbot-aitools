@@ -34,12 +34,15 @@ class QueryRequest(BaseModel):
 
 async def get_auth_token() -> str:
     """Get authentication token from Glific API"""
-    login_url = os.getenv("GLIFIC_LOGIN_URL")
+    api_url = os.getenv("GLIFIC_API_URL")
     phone = os.getenv("GLIFIC_PHONE")
     password = os.getenv("GLIFIC_PASSWORD")
 
-    if not all([login_url, phone, password]):
+    if not all([api_url, phone, password]):
         raise ValueError("Missing Glific credentials in environment variables")
+
+    # Derive login URL from base API URL
+    login_url = f"{api_url}/v1/session"
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as http_client:
