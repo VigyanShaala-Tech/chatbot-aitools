@@ -7,6 +7,9 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
+# Create logs directory for application logging
+RUN mkdir -p /app/logs
+
 # Copy only requirements first to leverage Docker layer caching
 COPY requirements.txt ./
 

@@ -9,7 +9,15 @@ from openai import OpenAI
 import uvicorn
 import httpx
 
-logging.basicConfig(level=logging.INFO)
+# Configure logging to both console and file
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Console output
+        logging.FileHandler('/app/logs/websearch.log')  # File output
+    ]
+)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
