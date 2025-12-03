@@ -79,9 +79,21 @@ async def process_search_and_callback(request_data: dict):
 
     logger.info(f"Starting search processing for query: {query}")
 
-    # Step 1: Call OpenAI API
+    # Step 1: Call OpenAI API with WhatsApp-optimized prompt
     try:
-        resp = client.responses.create(model="gpt-5", tools=[{"type": "web_search"}], input=query)
+        # Add system instruction to format response for WhatsApp
+        whatsapp_prompt = f"""Answer the following query concisely as the response will be sent via WhatsApp message.
+Keep your response under 1500 characters to fit WhatsApp's message limits.
+Use clear formatting with line breaks for readability.
+Avoid excessive formatting or special characters.
+
+Query: {query}"""
+
+        resp = client.responses.create(
+            model="gpt-5",
+            tools=[{"type": "web_search"}],
+            input=whatsapp_prompt
+        )
 
         out = {}
         out["model"] = getattr(resp, "model", None)
