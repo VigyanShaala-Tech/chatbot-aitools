@@ -1,7 +1,7 @@
 import os
 import logging
 import json
-from typing import Dict
+from typing import Dict, Optional
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel
@@ -30,6 +30,8 @@ class QueryRequest(BaseModel):
     query: str
     flow_id: str
     contact_id: str
+    # Optional instruction text that will be passed to the OpenAI call as an instruction parameter
+    instructions: Optional[str] = None
 
 
 async def get_auth_token() -> str:
@@ -76,24 +78,22 @@ async def process_search_and_callback(request_data: dict):
     query = request_data["query"]
     flow_id = request_data["flow_id"]
     contact_id = request_data["contact_id"]
+    instructions = request_data.get("instructions")
 
-    logger.info(f"Starting search processing for query: {query}")
+    logger.info(f"Starting search processing for query: {query} (instructions provided: {bool(instructions)})")
 
-    # Step 1: Call OpenAI API with WhatsApp-optimized prompt
+    # Step 1: Call OpenAI API using the raw query as input and forward any optional instructions
     try:
-        # Add system instruction to format response for WhatsApp
-        whatsapp_prompt = f"""Answer the following query concisely as the response will be sent via WhatsApp message.
-Keep your response under 1500 characters to fit WhatsApp's message limits.
-Use clear formatting with line breaks for readability.
-Avoid excessive formatting or special characters.
-
-Query: {query}"""
-
-        resp = client.responses.create(
+        # Build kwargs for the OpenAI call; send the raw query as the `input` and attach `instructions` when present
+        resp_kwargs = dict(
             model="gpt-5",
             tools=[{"type": "web_search"}],
-            input=whatsapp_prompt
+            input=query,
         )
+        if instructions:
+            resp_kwargs["instructions"] = instructions
+
+        resp = client.responses.create(**resp_kwargs)
 
         out = {}
         out["model"] = getattr(resp, "model", None)
