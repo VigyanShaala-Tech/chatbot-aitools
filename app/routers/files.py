@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, model_validator
 import json
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 from datetime import datetime
 import logging
 import os
+import httpx
+import tempfile
+import base64
 from app.services.openai_client import client
 from app.services.glific import resume_contact_flow
 
@@ -20,11 +23,16 @@ class FileAnalysisRequest(BaseModel):
 
     @model_validator(mode='before')
     @classmethod
-    def parse_string_input(cls, data: any) -> any:
-        if isinstance(data, str):
+    def parse_string_input(cls, data: Any) -> Any:
+        logger.info(f"Validator received data type: {type(data)}")
+        if isinstance(data, (str, bytes)):
             try:
-                return json.loads(data)
+                logger.info("Attempting to parse JSON string/bytes")
+                parsed = json.loads(data)
+                logger.info("Successfully parsed JSON")
+                return parsed
             except json.JSONDecodeError:
+                logger.error("Failed to parse JSON string")
                 raise ValueError("Invalid JSON string")
         return data
 
@@ -39,22 +47,42 @@ async def process_file_and_callback(request_data: dict):
     logger.info(f"Starting file processing for {file_url} with prompt: {prompt}")
 
     try:
-        # Step 1: Call OpenAI API directly with file URL
+        openai_response = ""
+
+        # Step 1: Download the file content
+        async with httpx.AsyncClient() as http_client:
+            resp = await http_client.get(file_url)
+            resp.raise_for_status()
+            
+            # Determine mime type
+            content_type = resp.headers.get("content-type") or "application/octet-stream"
+            file_data = resp.content
+            filename = file_url.split("/")[-1] or "file.bin"
+
+        # Step 2: Encode to Base64
+        base64_string = base64.b64encode(file_data).decode("utf-8")
+        data_uri = f"data:{content_type};base64,{base64_string}"
+
+        # Step 3: Call OpenAI API with Data URI
         openai_input = [
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": prompt},
                     {
                         "type": "input_file",
-                        "file_url": file_url
-                    }
-                ]
-            }
+                        "filename": filename,
+                        "file_data": data_uri,
+                    },
+                    {
+                        "type": "input_text",
+                        "text": prompt,
+                    },
+                ],
+            },
         ]
 
         resp = client.responses.create(
-            model="gpt-5",
+            model="gpt-5", # Keeping gpt-5 as requested, though gpt-4o is standard for this
             input=openai_input,
         )
 
@@ -75,7 +103,7 @@ async def process_file_and_callback(request_data: dict):
     except Exception as e:
         logger.error(f"Error processing file: {e}")
         openai_response = f"Error: {str(e)}"
-
+    
     # Send result to Glific
     result_data = {
         "openai_response": openai_response,
