@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+import json
 from typing import Dict, Optional
 from datetime import datetime
 import logging
@@ -16,6 +17,16 @@ class FileAnalysisRequest(BaseModel):
     prompt: Optional[str] = "Analyze this file"
     flow_id: str
     contact_id: str
+
+    @model_validator(mode='before')
+    @classmethod
+    def parse_string_input(cls, data: any) -> any:
+        if isinstance(data, str):
+            try:
+                return json.loads(data)
+            except json.JSONDecodeError:
+                raise ValueError("Invalid JSON string")
+        return data
 
 async def process_file_and_callback(request_data: dict):
     start_time = datetime.now()
