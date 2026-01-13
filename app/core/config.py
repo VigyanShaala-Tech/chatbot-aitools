@@ -1,0 +1,27 @@
+import os
+import logging
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    GLIFIC_API_URL: str = os.getenv("GLIFIC_API_URL", "")
+    GLIFIC_PHONE: str = os.getenv("GLIFIC_PHONE", "")
+    GLIFIC_PASSWORD: str = os.getenv("GLIFIC_PASSWORD", "")
+    LOG_LEVEL: str = "INFO"
+    LOG_FILE: str = "/app/logs/websearch.log"
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+
+# Configure logging
+logging.basicConfig(
+    level=getattr(logging, settings.LOG_LEVEL),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(settings.LOG_FILE) if os.path.exists(os.path.dirname(settings.LOG_FILE)) else logging.NullHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
