@@ -4,6 +4,7 @@ from typing import Dict, Optional
 from datetime import datetime
 import logging
 from app.services.openai_client import client
+from app.core.config import settings
 from app.services.glific import resume_contact_flow
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ async def process_search_and_callback(request_data: dict):
         # I'll stick to that.
         
         kwargs = dict(
-            model="gpt-5",
+            model=settings.OPENAI_MODEL,
             tools=[{"type": "web_search"}],
             input=query,
         )

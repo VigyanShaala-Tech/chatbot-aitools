@@ -4,11 +4,10 @@ import json
 from typing import Dict, Optional, Any
 from datetime import datetime
 import logging
-import os
 import httpx
-import tempfile
 import base64
 from app.services.openai_client import client
+from app.core.config import settings
 from app.services.glific import resume_contact_flow
 
 logger = logging.getLogger(__name__)
@@ -82,7 +81,7 @@ async def process_file_and_callback(request_data: dict):
         ]
 
         resp = client.responses.create(
-            model="gpt-5", # Keeping gpt-5 as requested, though gpt-4o is standard for this
+            model=settings.OPENAI_MODEL,
             input=openai_input,
         )
 
