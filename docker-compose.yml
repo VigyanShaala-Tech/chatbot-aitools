@@ -10,4 +10,6 @@ services:
       - GLIFIC_API_URL=${GLIFIC_API_URL}
       - GLIFIC_PHONE=${GLIFIC_PHONE}
       - GLIFIC_PASSWORD=${GLIFIC_PASSWORD}
+      - API_KEY=${API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
     restart: unless-stopped
