@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
 from typing import Dict, Optional
 from datetime import datetime
@@ -6,6 +6,7 @@ import logging
 from app.services.openai_client import client
 from app.core.config import settings
 from app.services.glific import resume_contact_flow
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ async def process_search_and_callback(request_data: dict):
         if instructions:
             kwargs["instructions"] = instructions
             
-        resp = client.responses.create(**kwargs)
+        resp = await client.responses.create(**kwargs)
 
         # Process response (same logic as before)
         out = {}
@@ -96,7 +97,8 @@ async def process_search_and_callback(request_data: dict):
 
 
 @router.post("/search", status_code=202)
-async def search(req: QueryRequest, background_tasks: BackgroundTasks) -> Dict[str, str]:
+@limiter.limit("20/minute")
+async def search(request: Request, req: QueryRequest, background_tasks: BackgroundTasks) -> Dict[str, str]:
     if not req.query or not req.query.strip():
         raise HTTPException(status_code=400, detail="query cannot be empty")
 

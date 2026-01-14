@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel, model_validator
 import json
 from typing import Dict, Optional, Any
@@ -9,6 +9,7 @@ import base64
 from app.services.openai_client import client
 from app.core.config import settings
 from app.services.glific import resume_contact_flow
+from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +81,7 @@ async def process_file_and_callback(request_data: dict):
             },
         ]
 
-        resp = client.responses.create(
+        resp = await client.responses.create(
             model=settings.OPENAI_MODEL,
             input=openai_input,
         )
@@ -116,7 +117,8 @@ async def process_file_and_callback(request_data: dict):
 
 
 @router.post("/analyze-file", status_code=202)
-async def analyze_file(req: FileAnalysisRequest, background_tasks: BackgroundTasks) -> Dict[str, str]:
+@limiter.limit("10/minute")
+async def analyze_file(request: Request, req: FileAnalysisRequest, background_tasks: BackgroundTasks) -> Dict[str, str]:
     if not req.file_url:
         raise HTTPException(status_code=400, detail="file_url is required")
 
