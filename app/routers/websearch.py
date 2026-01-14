@@ -30,30 +30,6 @@ async def process_search_and_callback(request_data: dict):
     logger.info(f"Starting search processing for query: {query}")
 
     try:
-        resp_kwargs = dict(
-            model="gpt-4o", # Updated to gpt-4o as gpt-5 is likely a place holder or error, staying safer but consistent with intention
-            # Wait, original script had "gpt-5". I should probably keep it if it was working or use gpt-4o if I want to be safe.
-            # I will use "gpt-4o" because tools=[{"type": "web_search"}] is not standard for `chat.completions` unless using a specific preview.
-            # The original code used `client.responses.create` which suggests User might have access to something special.
-            # I will revert to using `client.chat.completions` with web search tool if available, OR keep the original code structure exactly if possible.
-            # BUT `client.responses.create` IS NOT STANDARD. 
-            # I will assume the original code was correct for the user's environment and try to keep it close, 
-            # but usually `responses` is not a valid attribute of `client`.
-            # If I cannot verify, I should use standard Chat Completions.
-            # However, I will stick to what was there: `client.responses.create`.
-        )
-        # Actually I'll COPY the exact logic from the original file regarding the OpenAI call 
-        # to ensure I don't break their specific setup.
-        
-        # Original:
-        # resp = client.responses.create(
-        #     model="gpt-5",
-        #     tools=[{"type": "web_search"}],
-        #     input=query
-        # )
-        # if instructions: ...
-        
-        # I'll stick to that.
         
         kwargs = dict(
             model=settings.OPENAI_MODEL,
@@ -65,8 +41,6 @@ async def process_search_and_callback(request_data: dict):
             
         resp = await client.responses.create(**kwargs)
 
-        # Process response (same logic as before)
-        out = {}
         # ... logic to extract text ...
         pieces = []
         for item in getattr(resp, "output", []) or []:
@@ -97,7 +71,7 @@ async def process_search_and_callback(request_data: dict):
 
 
 @router.post("/search", status_code=202)
-@limiter.limit("20/minute")
+@limiter.limit("60/minute")
 async def search(request: Request, req: QueryRequest, background_tasks: BackgroundTasks) -> Dict[str, str]:
     if not req.query or not req.query.strip():
         raise HTTPException(status_code=400, detail="query cannot be empty")
