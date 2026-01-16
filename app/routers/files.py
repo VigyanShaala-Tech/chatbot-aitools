@@ -106,7 +106,7 @@ async def process_file_and_callback(request_data: dict):
     
     # Send result to Glific
     result_data = {
-        "openai_response": openai_response,
+        "filesearch_response": openai_response,
         "query": prompt,
         "file_url": file_url,
         "processed_at": datetime.now().isoformat(),

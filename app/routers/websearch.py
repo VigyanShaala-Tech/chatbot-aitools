@@ -61,7 +61,7 @@ async def process_search_and_callback(request_data: dict):
 
     # Send result to Glific
     result_data = {
-        "openai_response": openai_response,
+        "websearch_response": openai_response,
         "query": query,
         "processed_at": datetime.now().isoformat(),
         "duration_ms": int((datetime.now() - start_time).total_seconds() * 1000)
