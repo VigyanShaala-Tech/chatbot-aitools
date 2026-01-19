@@ -8,13 +8,22 @@ import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from locust import HttpUser, task, between, events
 
-# Default request tracker: {flow_id: start_time}
-REQUEST_TRACKER = {}
-TRACKER_LOCK = threading.Lock()
-
-# Configuration
+# --- Configuration ---
 MOCK_SERVER_PORT = 5050
 API_KEY = os.getenv("API_KEY", "your-secret-api-key")
+LOG_FILE = "transaction_logs.jsonl"
+
+# --- State Management ---
+# Stores context for in-flight requests: {flow_id: {start_time, request, initial_response}}
+REQUEST_TRACKER = {}
+TRACKER_LOCK = threading.Lock()
+LOG_LOCK = threading.Lock()
+
+def log_transaction(record):
+    """Thread-safe append to the transaction log file."""
+    with LOG_LOCK:
+        with open(LOG_FILE, "a") as f:
+            f.write(json.dumps(record) + "\n")
 
 # --- Mock Glific Server ---
 class MockGlificHandler(BaseHTTPRequestHandler):
@@ -39,21 +48,35 @@ class MockGlificHandler(BaseHTTPRequestHandler):
             flow_id = variables.get("flowId")
             
             # Match with tracker
+            context = None
             if flow_id:
                 with TRACKER_LOCK:
-                    start_time = REQUEST_TRACKER.pop(flow_id, None)
+                    context = REQUEST_TRACKER.pop(flow_id, None)
                 
-                if start_time:
-                    duration_ms = (time.time() - start_time) * 1000
-                    # Report success to Locust
-                    events.request.fire(
-                        request_type="Async Callback",
-                        name="Glific Notification",
-                        response_time=duration_ms,
-                        response_length=content_length,
-                        exception=None,
-                        context=None
-                    )
+            if context:
+                duration_ms = (time.time() - context["start_time"]) * 1000
+                
+                # Create Full Transaction Record
+                full_record = {
+                    "flow_id": flow_id,
+                    "endpoint": context["endpoint"],
+                    "start_time": datetime_str(context["start_time"]),
+                    "duration_ms": duration_ms,
+                    "request": context["request"],
+                    "initial_api_response": context["initial_response"],
+                    "glific_callback": body
+                }
+                log_transaction(full_record)
+
+                # Report success to Locust
+                events.request.fire(
+                    request_type="Async Callback",
+                    name="Glific Notification",
+                    response_time=duration_ms,
+                    response_length=content_length,
+                    exception=None,
+                    context=None
+                )
             
             # Always return success to the app
             self.send_response(200)
@@ -77,7 +100,6 @@ class MockGlificHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def log_message(self, format, *args):
-        # Silence server logs
         return
 
 def run_mock_server():
@@ -85,7 +107,10 @@ def run_mock_server():
     print(f"Mock Glific Server started on port {MOCK_SERVER_PORT}")
     server.serve_forever()
 
-# Start mock server in a daemon thread
+def datetime_str(timestamp):
+    return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(timestamp))
+
+# Start mock server
 server_thread = threading.Thread(target=run_mock_server, daemon=True)
 server_thread.start()
 
@@ -102,28 +127,38 @@ class ChatbotUser(HttpUser):
         flow_id = str(uuid.uuid4())
         
         payload = {
-            "query": f"test query {flow_id}",
-            "flow_id": flow_id,  # Used as correlation ID
+            "query": f"test query {flow_id[:8]}",
+            "flow_id": flow_id,
             "contact_id": f"contact_{flow_id[:8]}",
             "instructions": "Keep it brief"
         }
         
-        # Track start time
-        with TRACKER_LOCK:
-            REQUEST_TRACKER[flow_id] = time.time()
-            
+        start_ts = time.time()
+        
         # Initial Request
         with self.client.post("/search", json=payload, catch_response=True) as response:
-            if response.status_code != 202:
-                response.failure(f"Status {response.status_code}")
-                # Cleanup tracker on immediate failure
+            resp_content = None
+            try:
+                resp_content = response.json()
+            except:
+                resp_content = response.text
+
+            if response.status_code == 202:
+                # Store context for the callback
                 with TRACKER_LOCK:
-                    REQUEST_TRACKER.pop(flow_id, None)
+                    REQUEST_TRACKER[flow_id] = {
+                        "start_time": start_ts,
+                        "endpoint": "search",
+                        "request": payload,
+                        "initial_response": resp_content
+                    }
+            else:
+                response.failure(f"Status {response.status_code}")
 
     @task(1)
     def analyze_file(self):
         flow_id = str(uuid.uuid4())
-        # Generic public PDF for testing
+        # Use a stable URL or one that you know works
         file_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
         
         payload = {
@@ -133,14 +168,25 @@ class ChatbotUser(HttpUser):
             "contact_id": f"contact_{flow_id[:8]}"
         }
         
-        with TRACKER_LOCK:
-            REQUEST_TRACKER[flow_id] = time.time()
+        start_ts = time.time()
             
         with self.client.post("/analyze-file", json=payload, catch_response=True) as response:
-            if response.status_code != 202:
-                response.failure(f"Status {response.status_code}")
+            resp_content = None
+            try:
+                resp_content = response.json()
+            except:
+                resp_content = response.text
+
+            if response.status_code == 202:
                 with TRACKER_LOCK:
-                    REQUEST_TRACKER.pop(flow_id, None)
+                    REQUEST_TRACKER[flow_id] = {
+                        "start_time": start_ts,
+                        "endpoint": "analyze_file",
+                        "request": payload,
+                        "initial_response": resp_content
+                    }
+            else:
+                response.failure(f"Status {response.status_code}")
 
 if __name__ == "__main__":
     import os

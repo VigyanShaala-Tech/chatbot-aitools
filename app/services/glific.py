@@ -73,7 +73,8 @@ async def resume_contact_flow(flow_id: str, contact_id: str, result_data: Dict[s
                 json=graphql_query,
                 headers={
                     "authorization": auth_token,
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "ngrok-skip-browser-warning": "true"
                 }
             )
             response.raise_for_status()
