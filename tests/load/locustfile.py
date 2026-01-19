@@ -126,11 +126,36 @@ class ChatbotUser(HttpUser):
     def search_query(self):
         flow_id = str(uuid.uuid4())
         
+        stem_questions = [
+            "Why is the sky blue?",
+            "How do plants eat?",
+            "What makes a volcano erupt?",
+            "Why do stars twinkle?",
+            "How do birds fly?",
+            "What is gravity?",
+            "Why does ice float?",
+            "How do magnets work?",
+            "What is a black hole?",
+            "Why do leaves change color in fall?",
+            "How big is the universe?",
+            "What are clouds made of?",
+            "Why is the ocean salty?",
+            "How do computers think?",
+            "What is DNA?",
+            "Why do we need sleep?",
+            "How does the moon change shape?",
+            "What is electricity?",
+            "How are rainbows formed?",
+            "Why do cheetahs run so fast?"
+        ]
+        
+        question = random.choice(stem_questions)
+        
         payload = {
-            "query": f"test query {flow_id[:8]}",
+            "query": question,
             "flow_id": flow_id,
             "contact_id": f"contact_{flow_id[:8]}",
-            "instructions": "Keep it brief"
+            "instructions": "Keep it brief and simple for a child"
         }
         
         start_ts = time.time()
@@ -159,7 +184,8 @@ class ChatbotUser(HttpUser):
     def analyze_file(self):
         flow_id = str(uuid.uuid4())
         # Use a stable URL or one that you know works
-        file_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+        
+        file_url = "https://filemanager.gupshup.io/wa/ab0b21d3-311b-43af-8b37-c80705a428d8/wa/media/2586674838383070?download=false&fileName=PDF+document.pdf"
         
         payload = {
             "file_url": file_url,
