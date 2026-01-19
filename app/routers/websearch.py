@@ -71,7 +71,7 @@ async def process_search_and_callback(request_data: dict):
 
 
 @router.post("/search", status_code=202)
-@limiter.limit("60/minute")
+@limiter.limit("500/minute")
 async def search(request: Request, req: QueryRequest, background_tasks: BackgroundTasks) -> Dict[str, str]:
     if not req.query or not req.query.strip():
         raise HTTPException(status_code=400, detail="query cannot be empty")
