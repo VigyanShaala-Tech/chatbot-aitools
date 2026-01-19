@@ -1,0 +1,147 @@
+import os
+import random
+import string
+import time
+import uuid
+import json
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from locust import HttpUser, task, between, events
+
+# Default request tracker: {flow_id: start_time}
+REQUEST_TRACKER = {}
+TRACKER_LOCK = threading.Lock()
+
+# Configuration
+MOCK_SERVER_PORT = 5050
+API_KEY = os.getenv("API_KEY", "your-secret-api-key")
+
+# --- Mock Glific Server ---
+class MockGlificHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        # Handle Login (return fake token)
+        if self.path == "/v1/session":
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "data": {"access_token": "fake-load-test-token"}
+            }).encode())
+            return
+
+        # Handle GraphQL Mutation (The Callback)
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_data = self.rfile.read(content_length)
+        
+        try:
+            body = json.loads(post_data.decode('utf-8'))
+            variables = body.get("variables", {})
+            flow_id = variables.get("flowId")
+            
+            # Match with tracker
+            if flow_id:
+                with TRACKER_LOCK:
+                    start_time = REQUEST_TRACKER.pop(flow_id, None)
+                
+                if start_time:
+                    duration_ms = (time.time() - start_time) * 1000
+                    # Report success to Locust
+                    events.request.fire(
+                        request_type="Async Callback",
+                        name="Glific Notification",
+                        response_time=duration_ms,
+                        response_length=content_length,
+                        exception=None,
+                        context=None
+                    )
+            
+            # Always return success to the app
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "data": {"resumeContactFlow": {"success": True, "errors": []}}
+            }).encode())
+
+        except Exception as e:
+            # Report failure if we crash
+            events.request.fire(
+                request_type="Async Callback",
+                name="Glific Notification",
+                response_time=0,
+                response_length=0,
+                exception=e,
+                context=None
+            )
+            self.send_response(500)
+            self.end_headers()
+
+    def log_message(self, format, *args):
+        # Silence server logs
+        return
+
+def run_mock_server():
+    server = HTTPServer(('0.0.0.0', MOCK_SERVER_PORT), MockGlificHandler)
+    print(f"Mock Glific Server started on port {MOCK_SERVER_PORT}")
+    server.serve_forever()
+
+# Start mock server in a daemon thread
+server_thread = threading.Thread(target=run_mock_server, daemon=True)
+server_thread.start()
+
+
+# --- Locust User ---
+class ChatbotUser(HttpUser):
+    wait_time = between(2, 5)
+
+    def on_start(self):
+        self.client.headers.update({"X-API-KEY": API_KEY})
+
+    @task(3)
+    def search_query(self):
+        flow_id = str(uuid.uuid4())
+        
+        payload = {
+            "query": f"test query {flow_id}",
+            "flow_id": flow_id,  # Used as correlation ID
+            "contact_id": f"contact_{flow_id[:8]}",
+            "instructions": "Keep it brief"
+        }
+        
+        # Track start time
+        with TRACKER_LOCK:
+            REQUEST_TRACKER[flow_id] = time.time()
+            
+        # Initial Request
+        with self.client.post("/search", json=payload, catch_response=True) as response:
+            if response.status_code != 202:
+                response.failure(f"Status {response.status_code}")
+                # Cleanup tracker on immediate failure
+                with TRACKER_LOCK:
+                    REQUEST_TRACKER.pop(flow_id, None)
+
+    @task(1)
+    def analyze_file(self):
+        flow_id = str(uuid.uuid4())
+        # Generic public PDF for testing
+        file_url = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+        
+        payload = {
+            "file_url": file_url,
+            "prompt": "Summarize",
+            "flow_id": flow_id,
+            "contact_id": f"contact_{flow_id[:8]}"
+        }
+        
+        with TRACKER_LOCK:
+            REQUEST_TRACKER[flow_id] = time.time()
+            
+        with self.client.post("/analyze-file", json=payload, catch_response=True) as response:
+            if response.status_code != 202:
+                response.failure(f"Status {response.status_code}")
+                with TRACKER_LOCK:
+                    REQUEST_TRACKER.pop(flow_id, None)
+
+if __name__ == "__main__":
+    import os
+    os.system("locust -f locustfile.py")
