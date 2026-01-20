@@ -147,6 +147,8 @@ class MockOpenAIHandler(BaseHTTPRequestHandler):
                 ],
             }
 
+            response_bytes = json.dumps(response_body).encode()
+
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(response_bytes)))
