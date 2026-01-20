@@ -12,5 +12,7 @@ services:
       - GLIFIC_PASSWORD=${GLIFIC_PASSWORD}
       - API_KEY=${API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+      # - OPENAI_BASE_URL=${OPENAI_BASE_URL}
     restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs

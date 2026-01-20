@@ -10,10 +10,18 @@ client_kwargs = {
 	"timeout": 120.0,
 }
 
-# Allow redirecting to a mock server during load tests
-if settings.OPENAI_BASE_URL:
-	logger.info(f"OpenAI client initialized {settings.OPENAI_BASE_URL}",)
-	client_kwargs["base_url"] = settings.OPENAI_BASE_URL
+# Only set base_url if non-empty after stripping to avoid blank overrides
+base_url = settings.OPENAI_BASE_URL.strip() if settings.OPENAI_BASE_URL else None
+if base_url:
+	client_kwargs["base_url"] = base_url
 
 client = AsyncOpenAI(**client_kwargs)
+
+logger.info(
+	"OpenAI client initialized",
+	extra={
+		"base_url": getattr(client, "base_url", None),
+		"has_custom_base": bool(base_url),
+	},
+)
 

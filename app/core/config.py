@@ -40,7 +40,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Dedicated results logger with larger rotation
+# Dedicated results logger
 results_logger = logging.getLogger("app.results")
 results_logger.setLevel(getattr(logging, settings.LOG_LEVEL))
 
