@@ -1,4 +1,5 @@
 import logging
+import os
 from openai import AsyncOpenAI
 from app.core.config import settings
 
@@ -15,9 +16,5 @@ if settings.OPENAI_BASE_URL:
 
 client = AsyncOpenAI(**client_kwargs)
 logger.info(
-	"OpenAI client initialized",
-	extra={
-		"openai_base_url_setting": settings.OPENAI_BASE_URL,
-		"client_kwargs": client_kwargs,
-	},
+	f"OpenAI client initialized {settings.OPENAI_BASE_URL}",
 )
