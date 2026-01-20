@@ -1,14 +1,18 @@
+import json
+import logging
+from datetime import datetime
+from typing import Dict, Optional
+
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel
-from typing import Dict, Optional
-from datetime import datetime
-import logging
+
 from app.services.openai_client import client
-from app.core.config import settings
+from app.core.config import settings, results_logger
 from app.services.glific import resume_contact_flow
 from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
+results_log = results_logger
 
 router = APIRouter()
 
@@ -27,7 +31,7 @@ async def process_search_and_callback(request_data: dict):
     contact_id = request_data["contact_id"]
     instructions = request_data.get("instructions")
 
-    logger.info(f"Starting search processing for query: {query}")
+    logger.info(f"Starting search processing for query: {query} flow_id={flow_id} contact_id={contact_id}")
 
     try:
         
@@ -53,10 +57,10 @@ async def process_search_and_callback(request_data: dict):
                         pieces.append(c)
 
         openai_response = "\n\n".join(pieces) if pieces else None
-        logger.info("OpenAI API call successful")
+        logger.info(f"OpenAI API call successful flow_id={flow_id} contact_id={contact_id}")
 
     except Exception as e:
-        logger.error(f"OpenAI API error: {e}")
+        logger.error(f"OpenAI API error: {e} flow_id={flow_id} contact_id={contact_id}")
         openai_response = f"Error: {str(e)}"
 
     # Send result to Glific
@@ -67,6 +71,13 @@ async def process_search_and_callback(request_data: dict):
         "duration_ms": int((datetime.now() - start_time).total_seconds() * 1000)
     }
 
+    # Write a structured result log with flow and contact identifiers
+    results_log.info(json.dumps({
+        "flow_id": flow_id,
+        "contact_id": contact_id,
+        "result": result_data,
+    }))
+
     await resume_contact_flow(flow_id, contact_id, result_data)
 
 
@@ -76,7 +87,7 @@ async def search(request: Request, req: QueryRequest, background_tasks: Backgrou
     if not req.query or not req.query.strip():
         raise HTTPException(status_code=400, detail="query cannot be empty")
 
-    logger.info(f"Received search request: {req.model_dump()}")
+    logger.info(f"Received search request: {req.model_dump()} flow_id={req.flow_id} contact_id={req.contact_id}")
     background_tasks.add_task(process_search_and_callback, req.model_dump())
 
     return {

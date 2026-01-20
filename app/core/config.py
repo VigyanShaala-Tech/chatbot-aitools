@@ -1,5 +1,6 @@
 import os
 import logging
+from logging.handlers import RotatingFileHandler
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -11,7 +12,8 @@ class Settings(BaseSettings):
     GLIFIC_PHONE: str = os.getenv("GLIFIC_PHONE", "")
     GLIFIC_PASSWORD: str = os.getenv("GLIFIC_PASSWORD", "")
     LOG_LEVEL: str = "INFO"
-    LOG_FILE: str = "/app/logs/websearch.log"
+    LOG_FILE: str = "/app/logs/web.log"
+    RESULT_LOG_FILE: str = "/app/logs/results.log"
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -21,12 +23,19 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # Configure logging
+log_handlers = [logging.StreamHandler()]
+
+if settings.LOG_FILE:
+    log_dir = os.path.dirname(settings.LOG_FILE)
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True)
+    log_handlers.append(
+        RotatingFileHandler(settings.LOG_FILE, maxBytes=5 * 1024 * 1024, backupCount=3)
+    )
+
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(settings.LOG_FILE) if os.path.exists(os.path.dirname(settings.LOG_FILE)) else logging.NullHandler()
-    ]
+    handlers=log_handlers,
 )
 logger = logging.getLogger(__name__)

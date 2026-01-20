@@ -1,17 +1,20 @@
+import base64
+import json
+import logging
+from datetime import datetime
+from typing import Dict, Optional, Any
+
+import httpx
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 from pydantic import BaseModel, model_validator
-import json
-from typing import Dict, Optional, Any
-from datetime import datetime
-import logging
-import httpx
-import base64
+
 from app.services.openai_client import client
-from app.core.config import settings
+from app.core.config import settings, results_logger
 from app.services.glific import resume_contact_flow
 from app.core.rate_limit import limiter
 
 logger = logging.getLogger(__name__)
+results_log = results_logger
 
 router = APIRouter()
 
@@ -44,7 +47,7 @@ async def process_file_and_callback(request_data: dict):
     flow_id = request_data["flow_id"]
     contact_id = request_data["contact_id"]
 
-    logger.info(f"Starting file processing for {file_url} with prompt: {prompt}")
+    logger.info(f"Starting file processing for {file_url} with prompt: {prompt} flow_id={flow_id} contact_id={contact_id}")
 
     try:
         openai_response = ""
@@ -98,10 +101,10 @@ async def process_file_and_callback(request_data: dict):
                         pieces.append(c)
 
         openai_response = "\n\n".join(pieces) if pieces else None
-        logger.info("OpenAI API call successful")
+        logger.info(f"OpenAI API call successful flow_id={flow_id} contact_id={contact_id}")
 
     except Exception as e:
-        logger.error(f"Error processing file: {e}")
+        logger.error(f"Error processing file: {e} flow_id={flow_id} contact_id={contact_id}")
         openai_response = f"Error: {str(e)}"
     
     # Send result to Glific
@@ -113,6 +116,13 @@ async def process_file_and_callback(request_data: dict):
         "duration_ms": int((datetime.now() - start_time).total_seconds() * 1000)
     }
 
+    # Write structured result log with identifiers
+    results_log.info(json.dumps({
+        "flow_id": flow_id,
+        "contact_id": contact_id,
+        "result": result_data,
+    }))
+
     await resume_contact_flow(flow_id, contact_id, result_data)
 
 
@@ -122,7 +132,7 @@ async def analyze_file(request: Request, req: FileAnalysisRequest, background_ta
     if not req.file_url:
         raise HTTPException(status_code=400, detail="file_url is required")
 
-    logger.info(f"Received file analysis request: {req.model_dump()}")
+    logger.info(f"Received file analysis request: {req.model_dump()} flow_id={req.flow_id} contact_id={req.contact_id}")
     background_tasks.add_task(process_file_and_callback, req.model_dump())
 
     return {
