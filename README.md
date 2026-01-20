@@ -1,10 +1,11 @@
-# chatbot-websearch
+# chatbot-search
 
 FastAPI service that integrates OpenAI's web search capabilities with Glific for WhatsApp chatbot interactions.
 
 ## Features
 
 - Async web search using OpenAI GPT-5 with web search tools
+- File analysis (PDF/other files) via OpenAI file input support
 - Background task processing for non-blocking API responses
 - Glific API integration with GraphQL mutations
 - Docker support with Python 3.13 and uv for fast dependency installation
@@ -25,6 +26,8 @@ Create a `.env` file in the project root (see `.env.example` for reference):
 ```bash
 # OpenAI Configuration
 OPENAI_API_KEY=your_openai_api_key_here
+# Optional: override OpenAI base for mocks; leave empty for production
+# OPENAI_BASE_URL=http://host.docker.internal:5051/v1
 
 # Glific Configuration
 GLIFIC_API_URL=https://api.staging.glific.com/api
@@ -60,7 +63,7 @@ mkdir -p logs
 4. Run the application:
 
 ```bash
-python websearch.py
+python app/main.py
 ```
 
 The API will be available at `http://localhost:8000`.
@@ -68,7 +71,7 @@ The API will be available at `http://localhost:8000`.
 ### Development with auto-reload
 
 ```bash
-uvicorn websearch:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ## Docker Deployment
@@ -112,6 +115,7 @@ docker build -t chatbot-websearch .
 docker run -d \
   -e OPENAI_API_KEY="$OPENAI_API_KEY" \
   -e GLIFIC_API_URL="$GLIFIC_API_URL" \
+  -e OPENAI_BASE_URL="$OPENAI_BASE_URL" \
   -e GLIFIC_PHONE="$GLIFIC_PHONE" \
   -e GLIFIC_PASSWORD="$GLIFIC_PASSWORD" \
   -p 3001:8000 \
@@ -158,6 +162,31 @@ The service will:
 3. Authenticate with Glific API
 4. Send results via GraphQL `resumeContactFlow` mutation
 
+### File Analysis Endpoint
+
+Analyzes a remote file (e.g., PDF) and sends a summary to Glific.
+
+**Request:**
+
+```bash
+curl -X POST "http://localhost:3001/analyze-file" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file_url": "https://example.com/file.pdf",
+    "prompt": "Summarize",
+    "flow_id": "123",
+    "contact_id": "456"
+  }'
+```
+
+**Response (202 Accepted):** same envelope as `/search`.
+
+The service will:
+1. Return immediate acknowledgment (202)
+2. Download the file and send to OpenAI file input API
+3. Extract text from the response
+4. Send results via `resumeContactFlow`
+
 ### Health Check Endpoint
 
 ```bash
@@ -199,7 +228,8 @@ curl http://localhost:3001/health
 
 Logs are written to:
 - **Console**: Standard output (visible in `docker logs`)
-- **File**: `/app/logs/websearch.log` (inside container)
+- **App log** (rotating, 10MB): `/app/logs/web.log`
+- **Results log** (rotating, 20MB): `/app/logs/results.log` (flow/contact + result payloads)
 
 Log format: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
 
@@ -211,6 +241,13 @@ docker logs -f chatbot-websearch
 
 # File logs (exec into container)
 docker exec -it chatbot-websearch cat /app/logs/websearch.log
+```
+
+Mount logs to host (recommended) in `docker-compose.yml`:
+
+```yaml
+volumes:
+  - ./logs:/app/logs
 ```
 
 ## Configuration
@@ -257,10 +294,12 @@ docker-compose up --build
 
 ### OpenAI timeout errors
 
-The OpenAI client has a 120-second timeout. For longer operations, increase in `websearch.py`:
+The OpenAI client has a 120-second timeout. For longer operations, increase in `app/services/openai_client.py`:
 
 ```python
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=180.0)
+
+If you set `OPENAI_BASE_URL` (e.g., to a mock), traffic is routed there; leave it unset/empty to hit `https://api.openai.com/v1`.
 ```
 
 ## Production Deployment
