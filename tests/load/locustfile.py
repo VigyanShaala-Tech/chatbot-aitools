@@ -154,7 +154,6 @@ class MockOpenAIHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Length", str(len(response_bytes)))
             self.end_headers()
             self.wfile.write(response_bytes)
-            print("[MockOpenAI] Responded with:", response_body)
             return
 
         self.send_response(404)
