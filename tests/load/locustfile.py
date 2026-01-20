@@ -128,8 +128,6 @@ class MockOpenAIHandler(BaseHTTPRequestHandler):
             except json.JSONDecodeError:
                 payload = {}
 
-            print("[MockOpenAI] Received /v1/responses payload:", payload)
-
             mock_text = self._extract_text_hint(payload) or "Mocked OpenAI response"
 
             response_body = {
@@ -148,8 +146,6 @@ class MockOpenAIHandler(BaseHTTPRequestHandler):
                     }
                 ],
             }
-
-            response_bytes = json.dumps(response_body).encode()
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
