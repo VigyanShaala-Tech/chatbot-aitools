@@ -12,9 +12,8 @@ client_kwargs = {
 
 # Allow redirecting to a mock server during load tests
 if settings.OPENAI_BASE_URL:
+	logger.info(f"OpenAI client initialized {settings.OPENAI_BASE_URL}",)
 	client_kwargs["base_url"] = settings.OPENAI_BASE_URL
 
 client = AsyncOpenAI(**client_kwargs)
-logger.info(
-	f"OpenAI client initialized {settings.OPENAI_BASE_URL}",
-)
+
