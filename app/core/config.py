@@ -39,3 +39,16 @@ logging.basicConfig(
     handlers=log_handlers,
 )
 logger = logging.getLogger(__name__)
+
+# Dedicated results logger with larger rotation
+results_logger = logging.getLogger("app.results")
+results_logger.setLevel(getattr(logging, settings.LOG_LEVEL))
+
+if settings.RESULT_LOG_FILE:
+    res_dir = os.path.dirname(settings.RESULT_LOG_FILE)
+    if res_dir and not os.path.exists(res_dir):
+        os.makedirs(res_dir, exist_ok=True)
+    res_handler = RotatingFileHandler(settings.RESULT_LOG_FILE, maxBytes=20 * 1024 * 1024, backupCount=5)
+    res_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    res_handler.setFormatter(res_formatter)
+    results_logger.addHandler(res_handler)
