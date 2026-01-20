@@ -10,6 +10,7 @@ from locust import HttpUser, task, between, events
 
 # --- Configuration ---
 MOCK_SERVER_PORT = 5050
+MOCK_OPENAI_PORT = 5051
 API_KEY = os.getenv("API_KEY", "your-secret-api-key")
 LOG_FILE = "transaction_logs.jsonl"
 
@@ -113,6 +114,87 @@ def datetime_str(timestamp):
 # Start mock server
 server_thread = threading.Thread(target=run_mock_server, daemon=True)
 server_thread.start()
+
+
+# --- Mock OpenAI API ---
+class MockOpenAIHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path.rstrip("/") == "/v1/responses":
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+
+            try:
+                payload = json.loads(body.decode("utf-8") or "{}")
+            except json.JSONDecodeError:
+                payload = {}
+
+            mock_text = self._extract_text_hint(payload) or "Mocked OpenAI response"
+
+            response_body = {
+                "id": f"resp_{uuid.uuid4().hex[:8]}",
+                "object": "response",
+                "created": int(time.time()),
+                "model": payload.get("model", "mock-model"),
+                "output": [
+                    {
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": mock_text,
+                            }
+                        ]
+                    }
+                ],
+            }
+
+            response_bytes = json.dumps(response_body).encode()
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(response_bytes)))
+            self.end_headers()
+            self.wfile.write(response_bytes)
+            return
+
+        self.send_response(404)
+        self.end_headers()
+
+    def _extract_text_hint(self, payload):
+        input_payload = payload.get("input")
+
+        if isinstance(input_payload, str):
+            return f"Mocked response for query: {input_payload}"
+
+        if isinstance(input_payload, list):
+            for item in input_payload:
+                if not isinstance(item, dict):
+                    continue
+
+                content_list = item.get("content") or []
+                for content in content_list:
+                    if isinstance(content, dict) and content.get("type") in ("input_text", "text"):
+                        text_val = content.get("text")
+                        if text_val:
+                            return f"Mocked response for query: {text_val}"
+
+        instructions = payload.get("instructions")
+        if instructions:
+            return f"Mocked response for instructions: {instructions}"
+
+        return None
+
+    def log_message(self, format, *args):
+        return
+
+
+def run_mock_openai_server():
+    server = HTTPServer(("0.0.0.0", MOCK_OPENAI_PORT), MockOpenAIHandler)
+    print(f"Mock OpenAI API started on port {MOCK_OPENAI_PORT}")
+    server.serve_forever()
+
+
+openai_thread = threading.Thread(target=run_mock_openai_server, daemon=True)
+openai_thread.start()
 
 
 # --- Locust User ---
