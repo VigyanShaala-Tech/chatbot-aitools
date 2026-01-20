@@ -14,7 +14,10 @@ if settings.OPENAI_BASE_URL:
 	client_kwargs["base_url"] = settings.OPENAI_BASE_URL
 
 client = AsyncOpenAI(**client_kwargs)
-logger.info("OpenAI client initialized", extra={
-	"base_url": getattr(client, "base_url", None),
-	"has_custom_base": bool(settings.OPENAI_BASE_URL),
-})
+logger.info(
+	"OpenAI client initialized",
+	extra={
+		"openai_base_url_setting": settings.OPENAI_BASE_URL,
+		"client_kwargs": client_kwargs,
+	},
+)
