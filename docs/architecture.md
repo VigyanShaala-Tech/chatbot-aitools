@@ -1,7 +1,5 @@
 # Chatbot Websearch Architecture
 
-Audience: non-technical stakeholders who want to understand how the service works end-to-end.
-
 ## What the app does
 - Receives requests from a WhatsApp bot (via Glific) to search the web or analyze a file.
 - Uses OpenAI to generate an answer or summary.
