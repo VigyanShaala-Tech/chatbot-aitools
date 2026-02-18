@@ -11,7 +11,7 @@ from locust import HttpUser, task, between, events
 # --- Configuration ---
 MOCK_SERVER_PORT = 5050
 MOCK_OPENAI_PORT = 5051
-API_KEY = os.getenv("API_KEY", "your-secret-api-key")
+VS_API_KEY = os.getenv("VS_API_KEY", "your-secret-api-key")
 LOG_FILE = "transaction_logs.jsonl"
 
 # --- State Management ---
@@ -202,7 +202,7 @@ class ChatbotUser(HttpUser):
     wait_time = between(2, 5)
 
     def on_start(self):
-        self.client.headers.update({"X-API-KEY": API_KEY})
+        self.client.headers.update({"X-API-KEY": VS_API_KEY})
 
     @task(3)
     def search_query(self):

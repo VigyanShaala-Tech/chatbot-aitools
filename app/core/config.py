@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "")
-    API_KEY: str = os.getenv("API_KEY", "default-insecure-key-change-me")
+    VS_API_KEY: str = os.getenv("VS_API_KEY", "default-insecure-key-change-me")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-5")
     GLIFIC_API_URL: str = os.getenv("GLIFIC_API_URL", "")
     GLIFIC_PHONE: str = os.getenv("GLIFIC_PHONE", "")

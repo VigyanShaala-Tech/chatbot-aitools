@@ -33,7 +33,7 @@ User on WhatsApp -> Glific -> Our FastAPI /search (202 Accepted)
 
 File analysis flow (PDF or other file)
 ```
-User on WhatsApp -> Glific -> Our FastAPI /analyze-file (202 Accepted)
+User uploads image on Whatsapp -> Glific -> Our FastAPI /analyze-file (202 Accepted)
                                    | background task
                                    v
                           Download file from provided URL

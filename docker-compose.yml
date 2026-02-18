@@ -5,14 +5,9 @@ services:
     container_name: chatbot-websearch
     ports:
       - "3001:8000"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GLIFIC_API_URL=${GLIFIC_API_URL}
-      - GLIFIC_PHONE=${GLIFIC_PHONE}
-      - GLIFIC_PASSWORD=${GLIFIC_PASSWORD}
-      - API_KEY=${API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL}
-      # - OPENAI_BASE_URL=${OPENAI_BASE_URL}
+    env_file:
+      - .env
     restart: unless-stopped
     volumes:
       - ./logs:/app/logs
+
