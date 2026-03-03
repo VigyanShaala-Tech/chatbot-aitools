@@ -25,4 +25,4 @@ EXPOSE 8000
 # Default command runs the FastAPI app with gunicorn using uvicorn workers
 # Adjust --workers to match available CPU/memory for production
 # Set timeout to 180 seconds (3 minutes) to accommodate OpenAI API calls
-CMD ["gunicorn", "websearch:app", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "--workers", "2", "--threads", "4", "--timeout", "180", "--log-level", "info"]
+CMD ["gunicorn", "app.main:app", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000", "--workers", "2", "--threads", "4", "--timeout", "180", "--log-level", "info"]
