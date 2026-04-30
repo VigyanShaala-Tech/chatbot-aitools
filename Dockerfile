@@ -14,7 +14,8 @@ RUN mkdir -p /app/logs
 COPY requirements.txt ./
 
 # Install Python dependencies using uv (much faster than pip)
-RUN uv pip install --system --no-cache -r requirements.txt
+# setuptools is required by gunicorn (pkg_resources) and is no longer bundled in Python 3.13+
+RUN uv pip install --system --no-cache setuptools -r requirements.txt
 
 # Copy application
 COPY . /app
